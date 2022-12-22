@@ -69,72 +69,116 @@
           position="0 0.027 -0.459"
           rotation="81.739 0 0"
         >
-          <a-sphere class="origin" visible="false" color="red" radius="0.002"></a-sphere>
-          
-          <a-entity position="-0.008 0 0" rotation="0.207 -0.215 1.651">
-            <a-sphere
-              data-finger
-              color="white"
-              radius="0.004"
-            ></a-sphere>
+          <a-sphere
+            class="origin"
+            visible="false"
+            color="red"
+            radius="0.002"
+          ></a-sphere>
+
+          <a-entity position="-0.008 0 0">
+            <a-entity rotation="0.207 -0.215 1.651">
+              <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+              <a-cylinder
+                data-string
+                color="yellow"
+                radius="0.002"
+                height="0.334"
+                position="0 0.167 0"
+              ></a-cylinder>
+            </a-entity>
+          </a-entity>
+
+          <a-entity position="-0.002 0 0">
+            <a-entity rotation="-0.286 -0.092 0.609">
+              <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+              <a-cylinder
+                data-string
+                color="green"
+                radius="0.002"
+                height="0.334"
+                position="0 0.167 0"
+              ></a-cylinder>
+            </a-entity>
+          </a-entity>
+
+          <a-entity position="0.004 0 0">
+            <a-entity rotation="-0.133 0.049 -0.329">
+              <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+              <a-cylinder
+                data-string
+                color="blue"
+                radius="0.002"
+                height="0.334"
+                position="0 0.167 0"
+              ></a-cylinder>
+            </a-entity>
+          </a-entity>
+
+          <a-entity position="0.009 0 0">
+            <a-entity rotation="0.434 0.161 -1.108">
+              <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+              <a-cylinder
+                data-string
+                color="purple"
+                radius="0.002"
+                height="0.334"
+                position="0 0.167 0"
+              ></a-cylinder>
+            </a-entity>
+          </a-entity>
+
+          <a-entity class="frets">
             <a-cylinder
-              data-string
-              color="yellow"
               radius="0.002"
-              height="0.334"
-              position="0 0.167 0"
+              height="0.04"
+              position="0 0.0227 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.0416 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.05638 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.0723 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.08465 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.10065 0"
+              rotation="0 0 90"
+              data-fret
+            ></a-cylinder>
+            <a-cylinder
+              radius="0.002"
+              height="0.04"
+              position="0 0.1152 0"
+              rotation="0 0 90"
+              data-fret
             ></a-cylinder>
           </a-entity>
-          <a-entity position="-0.002 0 0" rotation="-0.286 -0.092 0.609">
-            <a-sphere
-              data-finger
-              color="white"
-              radius="0.004"
-            ></a-sphere>
-            <a-cylinder
-              data-string
-              color="green"
-              radius="0.002"
-              height="0.334"
-              position="0 0.167 0"
-            ></a-cylinder>
-          </a-entity>
-          <a-entity position="0.004 0 0" rotation="-0.133 0.049 -0.329">
-            <a-sphere
-              data-finger
-              color="white"
-              radius="0.004"
-            ></a-sphere>
-            <a-cylinder
-              data-string
-              color="blue"
-              radius="0.002"
-              height="0.334"
-              position="0 0.167 0"
-            ></a-cylinder>
-          </a-entity>
-          <a-entity position="0.009 0 0" rotation="0.434 0.161 -1.108">
-            <a-sphere
-              data-finger
-              color="white"
-              radius="0.004"
-            ></a-sphere>
-            <a-cylinder
-              data-string
-              color="purple"
-              radius="0.002"
-              height="0.334"
-              position="0 0.167 0"
-            ></a-cylinder>
-          </a-entity>
-          
-          <a-cylinder radius="0.002" height="0.04" position="0 0.0227 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.0416 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.05638 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.0723 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.08465 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.10065 0" rotation="0 0 90" data-fret></a-cylinder>
-          <a-cylinder radius="0.002" height="0.04" position="0 0.1152 0" rotation="0 0 90" data-fret></a-cylinder>
         </a-entity>
       </a-entity>
     </a-scene>

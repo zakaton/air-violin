@@ -121,6 +121,7 @@ AFRAME.registerSystem("violin", {
     this.fingerEntities = Array.from(
       this.data.violin.querySelectorAll("[data-finger]")
     );
+    this.fretEntityContainer = this.data.violin.querySelectorAll(".frets")
     this.fretEntities = Array.from(
       this.data.violin.querySelectorAll("[data-fret]")
     );
@@ -563,10 +564,10 @@ AFRAME.registerSystem("violin", {
     });
   },
   showFrets: function () {
-    this.setFretsVisibility(true);
+    this.fretEntityContainer.setAttribute("visible", true)
   },
   hideFrets: function () {
-    this.setFretsVisibility(false);
+    this.fretEntityContainer.setAttribute("visible", false)
   },
   highlightFret: function (index) {
     this.fretEntities.forEach((fretEntity, _index) => {
