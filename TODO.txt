@@ -1,0 +1,15 @@
+update violin shapes
+  text above each string
+  
+bind violin to camera (under the chin)
+  rotate camera to hand
+
+get curled finger normal
+map finger to note (none, open, note)
+
+load violin instrument
+https://github.com/nbrosowsky/tonejs-instruments
+
+display note being played
+add bow
+map right hand to bow
