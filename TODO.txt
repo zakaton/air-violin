@@ -1,5 +1,3 @@
-text above each string
-
 bind violin to camera (under the chin)
   rotate camera to hand
 

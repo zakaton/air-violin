@@ -121,7 +121,7 @@ AFRAME.registerSystem("violin", {
     this.fingerEntities = Array.from(
       this.data.violin.querySelectorAll("[data-finger]")
     );
-    this.fretEntityContainer = this.data.violin.querySelectorAll(".frets")
+    this.fretEntityContainer = this.data.violin.querySelectorAll("[data-frets]")
     this.fretEntities = Array.from(
       this.data.violin.querySelectorAll("[data-fret]")
     );
