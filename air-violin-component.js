@@ -7,6 +7,7 @@ AFRAME.registerSystem("air-violin", {
     modeText: { type: "selector" },
     violin: { type: "selector" },
     bow: { type: "selector" },
+    camera: { type: "selector", default: "[camera]" },
   },
   init: function () {
     window.airViolin = this;
@@ -41,6 +42,14 @@ AFRAME.registerSystem("air-violin", {
 
     this.hand = this.data[`${this.data.side}Hand`];
     this.otherHand = this.data[`${this.otherSide}Hand`];
+    
+    this.hand.addEventListener("hand-tracking-extras-ready", (event) => {
+      console.log(event)
+      this.hand.jointsAPI = event.detail.data.jointAPI;
+    });
+    this.otherHand.addEventListener("hand-tracking-extras-ready", (event) => {
+      this.otherHand.jointsAPI = event.detail.data.jointAPI;
+    });
 
     this.violinModelEntity = this.data.violin.querySelector("[gltf-model]");
 
@@ -122,45 +131,128 @@ AFRAME.registerSystem("air-violin", {
     this.modes = ["continuous", "notes", "perfect"];
     this.modeIndex = 0;
     this.onModeIndexUpdate();
+    
+    this.violinPitchOffset = 0.1
   },
-  updateMode: function (index, isOffset = true) {
-    let newModeIndex = this.modeIndex;
-    if (this.modes.includes(index)) {
-      newModeIndex = this.modes.indexOf(index);
+
+  updateIndex: function (index, isOffset = true, currentIndex, values) {
+    let newIndex = currentIndex;
+    if (isNaN(index) && values.includes(index)) {
+      newIndex = values.indexOf(index);
     } else {
       if (isOffset) {
-        newModeIndex += index;
+        newIndex += index;
       } else {
-        if (index >= 0 && index < this.modes.length) {
-          newModeIndex = index;
+        if (index >= 0 && index < values.length) {
+          newIndex = index;
         }
       }
     }
 
-    newModeIndex %= this.modes.length;
-    newModeIndex = THREE.MathUtils.clamp(
-      newModeIndex,
-      0,
-      this.modes.length - 1
-    );
+    newIndex %= values.length;
+    newIndex = THREE.MathUtils.clamp(newIndex, 0, values.length - 1);
 
+    return newIndex;
+  },
+  updateMode: function (index, isOffset = true) {
+    const newModeIndex = this.updateIndex(
+      index,
+      isOffset,
+      this.modeIndex,
+      this.modes
+    );
     if (this.modeIndex != newModeIndex) {
       this.modeIndex = newModeIndex;
       this.onModeIndexUpdate();
     }
   },
+
   onModeIndexUpdate: function () {
     this.mode = this.modes[this.modeIndex];
     console.log("new mode:", this.mode);
     this.data.modeText.setAttribute("value", this.mode);
 
-    switch (this.mode) {
+    switch (
+      this.mode
       // FILL
+    ) {
     }
   },
 
+  isHandVisible: function (side) {
+    const hand = side == this.data.side ? this.hand : this.otherHand;
+    return hand.components["hand-tracking-controls"]?.mesh?.visible;
+  },
+
   tick: function () {
+    const isHandVisible = this.isHandVisible(this.data.side);
+    if (isHandVisible) {
+      this.showViolin();
+      this.updateViolinRotation();
+    } else {
+      this.hideViolin();
+    }
+
+    const isOtherHandVisible = this.isHandVisible(this.otherSide);
+    if (isOtherHandVisible) {
+      this.showBow();
+      this.updateBowRotation();
+    } else {
+      this.hideBow();
+    }
+  },
+  setEntityVisibility: function (entity, visibility) {
+    if (entity.object3D.visible != visibility) {
+      entity.setAttribute("visible", visibility);
+    }
+  },
+  showEntity: function (entity) {
+    this.setEntityVisibility(entity, true);
+  },
+  hideEntity: function (entity) {
+    this.setEntityVisibility(entity, false);
+  },
+
+  showViolin: function () {
+    this.showEntity(this.data.violin);
+  },
+  hideViolin: function () {
+    this.hideEntity(this.data.violin);
+  },
+  updateViolinRotation: function () {
+    if (!this.hand.jointsAPI) {
+      return;
+    }
     
+    this.violinPosition = this.violinPosition || new THREE.Vector3();
+    this.handPosition = this.hand.jointsAPI.getWrist().getPosition();
+    this.violinToHandVector = this.violinToHandVector || new THREE.Vector3();
+
+    this.data.violin.object3D.getWorldPosition(this.violinPosition);
+    this.violinToHandVector.subVectors(this.handPosition, this.violinPosition);
+    
+    this.cameraEuler = this.cameraEuler || new THREE.Euler();
+    this.cameraEuler.x = -this.data.camera.object3D.rotation.x;
+    this.cameraEuler.y = -this.data.camera.object3D.rotation.y;
+    this.violinToHandVector.applyEuler(this.cameraEuler);
+        
+    this.spherical = this.spherical || new THREE.Spherical();
+    this.spherical.setFromVector3(this.violinToHandVector);
+    
+    const pitch = Math.PI / 2 - this.spherical.phi;
+    const yaw = this.spherical.theta + Math.PI;
+    this.data.violin.object3D.rotation.x = pitch + this.violinPitchOffset;
+    this.data.violin.object3D.rotation.y = yaw;
+  },
+
+  showBow: function () {
+    this.showEntity(this.data.bow);
+  },
+  hideBow: function () {
+    this.hideEntity(this.data.bow);
+  },
+  updateBowRotation: function () {
+    // FILL
   },
 
   highlightString: function (index) {
@@ -207,22 +299,12 @@ AFRAME.registerSystem("air-violin", {
     });
   },
   updateHighlightedFretIndex: function (index, isOffset = true) {
-    let newHighlightedFretIndex = this.highlightedFretIndex;
-    if (isOffset) {
-      newHighlightedFretIndex += index;
-    } else {
-      if (index >= 0 && index < this.fretEntities.length) {
-        newHighlightedFretIndex = index;
-      }
-    }
-
-    newHighlightedFretIndex %= this.fretEntities.length;
-    newHighlightedFretIndex = THREE.MathUtils.clamp(
-      newHighlightedFretIndex,
-      0,
-      this.fretEntities.length - 1
+    const newHighlightedFretIndex = this.updateIndex(
+      index,
+      isOffset,
+      this.highlightedFretIndex,
+      this.fretEntities
     );
-
     if (this.highlightedFretIndex != newHighlightedFretIndex) {
       this.highlightedFretIndex = newHighlightedFretIndex;
       this.highlightedFret = this.fretEntities[this.highlightedFretIndex];
@@ -259,7 +341,7 @@ AFRAME.registerSystem("air-violin", {
         text.setAttribute("color", color);
       }
       if (clear) {
-        this.clearText(text)
+        this.clearText(text);
       }
     }
   },
@@ -291,25 +373,15 @@ AFRAME.registerSystem("air-violin", {
 
   updateHighlightedSongNote: function (
     index,
-    isOffset = false,
+    isOffset = true,
     override = false
   ) {
-    let newSongNoteIndex = this.songNoteIndex;
-    if (isOffset) {
-      newSongNoteIndex += index;
-    } else {
-      if (index >= 0 && index < this.songNotes.length) {
-        newSongNoteIndex = index;
-      }
-    }
-
-    newSongNoteIndex %= this.songNotes.length;
-    newSongNoteIndex = THREE.MathUtils.clamp(
-      newSongNoteIndex,
-      0,
-      this.songNotes.length - 1
+    const newSongNoteIndex = this.updateIndex(
+      index,
+      isOffset,
+      this.songNoteIndex,
+      this.songNotes
     );
-
     if (this.songNoteIndex != newSongNoteIndex || override) {
       this.songNoteIndex = newSongNoteIndex;
       this.highlightedSongNote = this.songNotes[this.songNoteIndex];

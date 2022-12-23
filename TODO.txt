@@ -1,6 +1,3 @@
-bind violin to camera (under the chin)
-  rotate camera to hand
-
 get curled finger normal
 map finger to note (none, open, note)
 
