@@ -7,6 +7,7 @@
     <script src="https://gftruj.github.io/hand.tracking.controls.extras/dist/aframe-hand-tracking-controls-extras.js"></script>
     <script src="/scales.js"></script>
     <script src="/air-violin-component.js"></script>
+    <script src="/instruments/index.js" type="module"></script>
   </head>
   <body>
     <a-scene
@@ -43,7 +44,12 @@
 
             <a-entity position="-0.008 0 0">
               <a-entity rotation="0.207 -0.215 1.651">
-                <a-sphere data-finger color="white" visible="false" radius="0.004"></a-sphere>
+                <a-sphere
+                  data-finger
+                  color="white"
+                  visible="false"
+                  radius="0.004"
+                ></a-sphere>
                 <a-cylinder
                   data-string
                   color="yellow"
@@ -298,9 +304,5 @@
       }
     });
     audioContext.dispatchEvent(new Event("statechange"));
-  </script>
-  
-  <script type="module">
-    import {ViolinMp3, ViolinOgg, ViolinWav} from "https://unpkg.com/tonejs-instrument-violin@1.1.0/index.js"
   </script>
 </html>
