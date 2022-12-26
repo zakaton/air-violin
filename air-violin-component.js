@@ -1,4 +1,4 @@
-/* global AFRAME, THREE, Tone, PitchDetector */
+/* global AFRAME, THREE, Tone, PitchDetector, scale */
 AFRAME.registerSystem("air-violin", {
   schema: {
     leftHand: { type: "selector" },
@@ -8,6 +8,8 @@ AFRAME.registerSystem("air-violin", {
     violin: { type: "selector" },
     bow: { type: "selector" },
     camera: { type: "selector", default: "[camera]" },
+    curlThreshold: { type: "number", default: 0 },
+    maxStrings: { type: "number", default: 4 },
   },
   init: function () {
     window.airViolin = this;
@@ -42,9 +44,8 @@ AFRAME.registerSystem("air-violin", {
 
     this.hand = this.data[`${this.data.side}Hand`];
     this.otherHand = this.data[`${this.otherSide}Hand`];
-    
+
     this.hand.addEventListener("hand-tracking-extras-ready", (event) => {
-      console.log(event)
       this.hand.jointsAPI = event.detail.data.jointAPI;
     });
     this.otherHand.addEventListener("hand-tracking-extras-ready", (event) => {
@@ -66,8 +67,12 @@ AFRAME.registerSystem("air-violin", {
     this.fretEntities = Array.from(
       this.data.violin.querySelectorAll("[data-fret]")
     );
-
-    this.updateHighlightedFretIndex(0, false);
+    this.noteEntities = Array.from(
+      this.data.violin.querySelectorAll("[data-note]")
+    );
+    this.noteTextEntities = this.noteEntities.map((noteEntity) =>
+      noteEntity.querySelector("a-text")
+    );
 
     this.fingerStringToFingerIndex = {
       0: 0,
@@ -128,11 +133,38 @@ AFRAME.registerSystem("air-violin", {
       return this.stringFrequencies[string][fingerIndex];
     });
 
-    this.modes = ["continuous", "notes", "perfect"];
-    this.modeIndex = 0;
+    this.modes = ["continuous", "notes", "scale", "perfect"];
+    this.modeIndex = 1;
     this.onModeIndexUpdate();
-    
-    this.violinPitchOffset = 0.1
+
+    this.violinPitchOffset = 0.1;
+
+    this.fingerNotes = this.stringFrequencies.map(
+      (frequencies) => new Tone.Frequency(frequencies[0].toFrequency())
+    );
+    this.isStringUsed = new Array(this.fingerNotes.length).fill(false);
+
+    this.scale = scale;
+    //this.scale.root = "D"
+    this.updateScaleFrequencies();
+  },
+  updateScaleFrequencies: function () {
+    this.scaleFrequencies = this.stringFrequencies.map(
+      (fingerFrequencies, stringIndex) =>
+        fingerFrequencies
+          .map((frequency, index) => {
+            const note = frequency.toNote();
+            const noteWithoutNumber = note.replace(/[0-9]/g, "");
+            if (
+              this.scale.keyToScales[noteWithoutNumber].includes(
+                this.scale.name
+              )
+            ) {
+              return { frequency, index };
+            }
+          })
+          .filter(Boolean)
+    );
   },
 
   updateIndex: function (index, isOffset = true, currentIndex, values) {
@@ -172,10 +204,10 @@ AFRAME.registerSystem("air-violin", {
     console.log("new mode:", this.mode);
     this.data.modeText.setAttribute("value", this.mode);
 
-    switch (
-      this.mode
+    switch (this.mode) {
       // FILL
-    ) {
+      default:
+        break;
     }
   },
 
@@ -187,18 +219,20 @@ AFRAME.registerSystem("air-violin", {
   tick: function () {
     const isHandVisible = this.isHandVisible(this.data.side);
     if (isHandVisible) {
-      this.showViolin();
+      this.showEntity(this.data.violin);
       this.updateViolinRotation();
+      this.updateFingerCurls();
+      this.updateFingerNotes();
     } else {
-      this.hideViolin();
+      this.hideEntity(this.data.violin);
     }
 
     const isOtherHandVisible = this.isHandVisible(this.otherSide);
     if (isOtherHandVisible) {
-      this.showBow();
+      this.showEntity(this.data.bow);
       this.updateBowRotation();
     } else {
-      this.hideBow();
+      this.hideEntity(this.data.bow);
     }
   },
   setEntityVisibility: function (entity, visibility) {
@@ -207,110 +241,163 @@ AFRAME.registerSystem("air-violin", {
     }
   },
   showEntity: function (entity) {
-    this.setEntityVisibility(entity, true);
+    this.setEntityVisibility(entity, "true");
   },
   hideEntity: function (entity) {
-    this.setEntityVisibility(entity, false);
+    this.setEntityVisibility(entity, "false");
   },
 
-  showViolin: function () {
-    this.showEntity(this.data.violin);
-  },
-  hideViolin: function () {
-    this.hideEntity(this.data.violin);
-  },
   updateViolinRotation: function () {
     if (!this.hand.jointsAPI) {
       return;
     }
-    
+
     this.violinPosition = this.violinPosition || new THREE.Vector3();
     this.handPosition = this.hand.jointsAPI.getWrist().getPosition();
     this.violinToHandVector = this.violinToHandVector || new THREE.Vector3();
 
     this.data.violin.object3D.getWorldPosition(this.violinPosition);
     this.violinToHandVector.subVectors(this.handPosition, this.violinPosition);
-    
+
     this.cameraEuler = this.cameraEuler || new THREE.Euler();
     this.cameraEuler.x = -this.data.camera.object3D.rotation.x;
     this.cameraEuler.y = -this.data.camera.object3D.rotation.y;
-    this.violinToHandVector.applyEuler(this.cameraEuler);
-        
+    this.rotatedViolinToHandVector =
+      this.rotatedViolinToHandVector || new THREE.Vector3();
+    this.rotatedViolinToHandVector.copy(this.violinToHandVector);
+    this.rotatedViolinToHandVector.applyEuler(this.cameraEuler);
+
     this.spherical = this.spherical || new THREE.Spherical();
-    this.spherical.setFromVector3(this.violinToHandVector);
-    
+    this.spherical.setFromVector3(this.rotatedViolinToHandVector);
+
     const pitch = Math.PI / 2 - this.spherical.phi;
     const yaw = this.spherical.theta + Math.PI;
     this.data.violin.object3D.rotation.x = pitch + this.violinPitchOffset;
     this.data.violin.object3D.rotation.y = yaw;
   },
+  updateFingerCurls: function () {
+    this.normalizedViolinToHandVector =
+      this.normalizedViolinToHandVector || new THREE.Vector3();
+    this.normalizedViolinToHandVector.copy(this.violinToHandVector).normalize();
+    this.indexFingerDirection = this.hand.jointsAPI
+      .getIndexTip()
+      .getDirection();
+    this.fingerDirections = [
+      this.hand.jointsAPI.getIndexTip().getDirection(),
+      this.hand.jointsAPI.getMiddleTip().getDirection(),
+      this.hand.jointsAPI.getRingTip().getDirection(),
+      this.hand.jointsAPI.getLittleTip().getDirection(),
+    ];
+    this.fingerCurls = this.fingerDirections.map(
+      (direction) => -direction.dot(this.normalizedViolinToHandVector)
+    );
+  },
+  updateFingerNotes: function () {
+    let numberOfStringsUsed = 0;
+    this.fingerCurls.forEach((fingerCurl, fingerIndex) => {
+      let useString = fingerCurl > this.data.curlThreshold;
+      if (useString) {
+        if (numberOfStringsUsed < this.data.maxStrings) {
+          numberOfStringsUsed++;
+        } else {
+          useString = false;
+        }
+      }
 
-  showBow: function () {
-    this.showEntity(this.data.bow);
+      this.isStringUsed[fingerIndex] = useString;
+      if (useString) {
+        const interpolation = THREE.MathUtils.inverseLerp(
+          this.data.curlThreshold,
+          1,
+          fingerCurl - this.data.curlThreshold
+        );
+        this.updateFingerNote(fingerCurl, fingerIndex);
+
+        this.showEntity(this.fingerEntities[fingerIndex]);
+        this.showEntity(this.stringEntities[fingerIndex]);
+        this.showEntity(this.noteEntities[fingerIndex]);
+      } else {
+        this.hideEntity(this.fingerEntities[fingerIndex]);
+        this.hideEntity(this.stringEntities[fingerIndex]);
+        this.hideEntity(this.noteEntities[fingerIndex]);
+      }
+    });
   },
-  hideBow: function () {
-    this.hideEntity(this.data.bow);
+  updateFingerNote: function (fingerCurl, fingerIndex) {
+    const frequencyObject = this.fingerNotes[fingerIndex];
+
+    const previousFrequency = frequencyObject.toFrequency();
+    const previousNote = frequencyObject.toNote();
+
+    const stringFrequencies = this.stringFrequencies[fingerIndex];
+    const baseFrequency = stringFrequencies[0].toFrequency();
+    frequencyObject._val = baseFrequency;
+
+    let transposition = 0;
+    switch (this.mode) {
+      case "continuous":
+      case "notes":
+        transposition = fingerCurl * (stringFrequencies.length - 1);
+        if (this.mode == "notes") {
+          transposition = Math.floor(transposition);
+        }
+        break;
+      case "scale":
+      case "perfect":
+        {
+          const scaleFrequencies = this.scaleFrequencies[fingerIndex];
+          const scaleIndex = Math.floor(
+            fingerCurl * (scaleFrequencies.length - 1)
+          );
+
+          let scaleFrequencyIndex = 0;
+          if (this.mode == "scale") {
+            scaleFrequencyIndex = fingerCurl * (scaleFrequencies.length - 1);
+          } else {
+            // FILL
+          }
+          scaleFrequencyIndex = Math.floor(scaleFrequencyIndex);
+
+          const scaleFrequency = scaleFrequencies[scaleFrequencyIndex];
+          transposition = scaleFrequency.index;
+        }
+        break;
+    }
+    frequencyObject._val *= 2 ** (transposition / 12);
+
+    if (Math.abs(frequencyObject.toFrequency() - previousFrequency) > 1) {
+      const fingerEntity = this.fingerEntities[fingerIndex];
+      const newFingerPosition = this.getFretPosition(transposition);
+      fingerEntity.object3D.position.y = newFingerPosition;
+
+      let showFingerPosition = transposition > 0;
+      if (showFingerPosition) {
+        this.showEntity(fingerEntity);
+      } else {
+        this.hideEntity(fingerEntity);
+      }
+
+      const newNote = frequencyObject.toNote();
+      if (newNote != previousNote) {
+        this.setText(this.noteTextEntities[fingerIndex], newNote);
+      }
+    }
   },
+
+  getFretPosition: function (transposition) {
+    const fromFretEntity = this.fretEntities[Math.floor(transposition)];
+    const toFretEntity = this.fretEntities[Math.ceil(transposition)];
+
+    const fromPosition = fromFretEntity.object3D.position.y;
+    const toPosition = toFretEntity.object3D.position.y;
+
+    return THREE.MathUtils.lerp(fromPosition, toPosition, transposition % 1);
+  },
+
   updateBowRotation: function () {
     // FILL
   },
 
-  highlightString: function (index) {
-    console.log("highlighting string", index);
-    this.stringEntities.forEach((stringEntity, _index) => {
-      //stringEntity.object3D.visible = index === _index;
-      stringEntity.setAttribute("opacity", index === _index ? 1 : 0.6);
-    });
-  },
-  showStrings: function () {
-    this.stringEntities.forEach((stringEntity) => {
-      //stringEntity.object3D.visible = true
-      stringEntity.setAttribute("opacity", 1);
-    });
-  },
-  clearStrings: function () {
-    this.highlightString(-1);
-  },
-
-  highlightKnob: function (index, offset = 1) {
-    this.knobEntities.forEach((knobEntity, _index) => {
-      knobEntity.object3D.visible = index === _index;
-      knobEntity.object3D.scale.x = Math.sign(offset);
-    });
-  },
-  clearKnobs: function () {
-    this.highlightKnob(-1);
-  },
-
-  setFretsVisibility: function (visible) {
-    this.fretEntities.forEach((fretEntity) => {
-      fretEntity.object3D.visible = visible;
-    });
-  },
-  showFrets: function () {
-    this.setFretsVisibility(true);
-  },
-  hideFrets: function () {
-    this.setFretsVisibility(false);
-  },
-  highlightFret: function (index) {
-    this.fretEntities.forEach((fretEntity, _index) => {
-      fretEntity.setAttribute("color", index == _index ? "red" : "black");
-    });
-  },
-  updateHighlightedFretIndex: function (index, isOffset = true) {
-    const newHighlightedFretIndex = this.updateIndex(
-      index,
-      isOffset,
-      this.highlightedFretIndex,
-      this.fretEntities
-    );
-    if (this.highlightedFretIndex != newHighlightedFretIndex) {
-      this.highlightedFretIndex = newHighlightedFretIndex;
-      this.highlightedFret = this.fretEntities[this.highlightedFretIndex];
-      this.highlightFret(this.highlightedFretIndex);
-    }
-  },
   getClosestStringIndex: function (pitch, fingerIndex = 0) {
     let closestString;
     let closestFrequency;
@@ -333,24 +420,14 @@ AFRAME.registerSystem("air-violin", {
     return closestIndex;
   },
 
-  setText: function (text, value, color, clear) {
+  setText: function (text, value, color) {
     if (value) {
       text.setAttribute("value", value);
-      text.parentEl.setAttribute("visible", "true");
+      this.showEntity(text.parentEl);
       if (color) {
         text.setAttribute("color", color);
       }
-      if (clear) {
-        this.clearText(text);
-      }
     }
-  },
-  clearText: function (text) {
-    //text.setAttribute("value", "");
-    text.parentEl.setAttribute("visible", "false");
-  },
-  clearAllText: function () {
-    // FILL
   },
 
   getPitchOffset: function (pitch) {

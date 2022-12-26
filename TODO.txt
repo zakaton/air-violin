@@ -1,9 +1,9 @@
-get curled finger normal
-map finger to note (none, open, note)
+perfect scale
 
 load violin instrument
 https://github.com/nbrosowsky/tonejs-instruments
 
-display note being played
-add bow
 map right hand to bow
+bind bow to strings if at least 1 string
+put bow through violin if bound
+volume is proportional to lateral movement
