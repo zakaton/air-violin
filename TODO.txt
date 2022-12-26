@@ -1,0 +1,9 @@
+load violin instrument
+https://github.com/nbrosowsky/tonejs-instruments
+
+map right hand to bow
+bind bow to strings if at least 1 string
+put bow through violin if bound
+volume is proportional to lateral movement
+
+fix "perfect" - what sounds good?
