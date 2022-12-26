@@ -8,8 +8,9 @@ AFRAME.registerSystem("air-violin", {
     violin: { type: "selector" },
     bow: { type: "selector" },
     camera: { type: "selector", default: "[camera]" },
-    curlThreshold: { type: "number", default: 0 },
-    maxStrings: { type: "number", default: 4 },
+    curlThreshold: { type: "number", default: -0.7 },
+    maxCurlThreshold: { type: "number", default: 0.6 },
+    maxStrings: { type: "number", default: 2 },
   },
   init: function () {
     window.airViolin = this;
@@ -288,30 +289,55 @@ AFRAME.registerSystem("air-violin", {
       this.hand.jointsAPI.getRingTip().getDirection(),
       this.hand.jointsAPI.getLittleTip().getDirection(),
     ];
+    /*
     this.fingerCurls = this.fingerDirections.map(
       (direction) => -direction.dot(this.normalizedViolinToHandVector)
+    );
+    */
+    this.fingerCurls = this.fingerDirections.map(
+      (direction) => -direction.y
     );
   },
   updateFingerNotes: function () {
     let numberOfStringsUsed = 0;
+    const previousIsStringUsed = this.isStringUsed.slice();
+
     this.fingerCurls.forEach((fingerCurl, fingerIndex) => {
       let useString = fingerCurl > this.data.curlThreshold;
       if (useString) {
-        if (numberOfStringsUsed < this.data.maxStrings) {
-          numberOfStringsUsed++;
-        } else {
-          useString = false;
-        }
+        numberOfStringsUsed++;
       }
 
       this.isStringUsed[fingerIndex] = useString;
-      if (useString) {
-        const interpolation = THREE.MathUtils.inverseLerp(
+    });
+
+    if (numberOfStringsUsed > this.data.maxStrings) {
+      const numberOfStringsToUnuse = numberOfStringsUsed - this.data.maxStrings;
+      let numberOfStringsUnused = 0;
+      for (
+        let _fingerIndex = this.fingerCurls.length - 1;
+        numberOfStringsUnused < numberOfStringsToUnuse && _fingerIndex >= 0;
+        _fingerIndex--
+      ) {
+        if (
+          !previousIsStringUsed[_fingerIndex] &&
+          this.isStringUsed[_fingerIndex]
+        ) {
+          this.isStringUsed[_fingerIndex] = false;
+          numberOfStringsUnused++;
+        }
+      }
+    }
+
+    this.fingerCurls.forEach((fingerCurl, fingerIndex) => {
+      if (this.isStringUsed[fingerIndex]) {
+        let interpolation = THREE.MathUtils.inverseLerp(
           this.data.curlThreshold,
-          1,
-          fingerCurl - this.data.curlThreshold
+          this.data.maxCurlThreshold,
+          fingerCurl
         );
-        this.updateFingerNote(fingerCurl, fingerIndex);
+        interpolation = THREE.MathUtils.clamp(interpolation, 0, 1)
+        this.updateFingerNote(interpolation, fingerIndex);
 
         this.showEntity(this.fingerEntities[fingerIndex]);
         this.showEntity(this.stringEntities[fingerIndex]);
@@ -323,7 +349,7 @@ AFRAME.registerSystem("air-violin", {
       }
     });
   },
-  updateFingerNote: function (fingerCurl, fingerIndex) {
+  updateFingerNote: function (interpolation, fingerIndex) {
     const frequencyObject = this.fingerNotes[fingerIndex];
 
     const previousFrequency = frequencyObject.toFrequency();
@@ -337,7 +363,7 @@ AFRAME.registerSystem("air-violin", {
     switch (this.mode) {
       case "continuous":
       case "notes":
-        transposition = fingerCurl * (stringFrequencies.length - 1);
+        transposition = interpolation * (stringFrequencies.length - 1);
         if (this.mode == "notes") {
           transposition = Math.floor(transposition);
         }
@@ -346,18 +372,43 @@ AFRAME.registerSystem("air-violin", {
       case "perfect":
         {
           const scaleFrequencies = this.scaleFrequencies[fingerIndex];
-          const scaleIndex = Math.floor(
-            fingerCurl * (scaleFrequencies.length - 1)
-          );
 
           let scaleFrequencyIndex = 0;
           if (this.mode == "scale") {
-            scaleFrequencyIndex = fingerCurl * (scaleFrequencies.length - 1);
+            scaleFrequencyIndex = interpolation * (scaleFrequencies.length - 1);
           } else {
-            // FILL
-          }
-          scaleFrequencyIndex = Math.floor(scaleFrequencyIndex);
+            let _scaleFrequencies = scaleFrequencies.slice();
+            let foundPreviousFrequency = false;
+            for (
+              let _fingerIndex = fingerIndex-1;
+              !foundPreviousFrequency && _fingerIndex >= 0;
+              _fingerIndex--
+            ) {
+              if (this.isStringUsed[_fingerIndex]) {
+                foundPreviousFrequency = true;
 
+                const _frequencyObject = this.fingerNotes[_fingerIndex];
+                const midi = _frequencyObject.toMidi();
+                const frequency = _frequencyObject.toFrequency();
+                _scaleFrequencies = _scaleFrequencies.filter(
+                  ({frequency: scaleFrequencyObject}) => {
+                    const _midi = scaleFrequencyObject.toMidi();
+                    const semitones = (_midi - midi) % 12;
+                    return semitones > 2;
+                  }
+                );
+              }
+            }
+
+            let _scaleFrequencyIndex =
+              interpolation * (_scaleFrequencies.length - 1);
+            _scaleFrequencyIndex = Math.floor(_scaleFrequencyIndex);
+
+            const _scaleFrequency = _scaleFrequencies[_scaleFrequencyIndex];
+            scaleFrequencyIndex = scaleFrequencies.indexOf(_scaleFrequency);
+          }
+
+          scaleFrequencyIndex = Math.floor(scaleFrequencyIndex);
           const scaleFrequency = scaleFrequencies[scaleFrequencyIndex];
           transposition = scaleFrequency.index;
         }
