@@ -6,8 +6,8 @@
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://gftruj.github.io/hand.tracking.controls.extras/dist/aframe-hand-tracking-controls-extras.js"></script>
     <script src="/scales.js"></script>
-    <script src="/air-violin-component.js"></script>
     <script src="/instruments/index.js" type="module"></script>
+    <script src="/air-violin-component.js" defer></script>
   </head>
   <body>
     <a-scene
@@ -281,14 +281,15 @@
         hand-tracking-extras
       ></a-entity>
       <a-entity
-        visible="false"
+        visible="true"
         id="rightHandControls"
         hand-tracking-controls="hand: right;"
         hand-tracking-extras
       >
-        <a-entity visible="false" id="bow" _scale="8 8 8">
-          <a-entity id="bowEntity" gltf-model="#bowModel"></a-entity>
-        </a-entity>
+      </a-entity>
+      
+      <a-entity visible="false" id="bow" _scale="8 8 8">
+        <a-entity id="bowEntity" gltf-model="#bowModel" position="0 -0.03 -0.08"></a-entity>
       </a-entity>
     </a-scene>
   </body>

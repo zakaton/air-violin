@@ -1,4 +1,4 @@
-/* global AFRAME, THREE, Tone, PitchDetector, scale */
+/* global AFRAME, THREE, Tone, PitchDetector, scale, instruments */
 AFRAME.registerSystem("air-violin", {
   schema: {
     leftHand: { type: "selector" },
@@ -11,9 +11,13 @@ AFRAME.registerSystem("air-violin", {
     curlThreshold: { type: "number", default: -0.7 },
     maxCurlThreshold: { type: "number", default: 0.6 },
     maxStrings: { type: "number", default: 2 },
+    instrument: {type: "string", default: "wav"}
   },
   init: function () {
     window.airViolin = this;
+    this.instrumentClass = instruments.Violin.getByType(this.data.instrument)
+    this.instrument = new this.instrumentClass();
+    this.instrument.toDestination()
 
     // https://github.com/Tonejs/Tone.js/blob/r11/Tone/type/Frequency.js#L261
     this.A4 = 440;
@@ -74,6 +78,9 @@ AFRAME.registerSystem("air-violin", {
     this.noteTextEntities = this.noteEntities.map((noteEntity) =>
       noteEntity.querySelector("a-text")
     );
+    
+    this.bowEntity = this.data.bow.querySelector("#bowEntity")
+    this.isBowUsed = null;
 
     this.fingerStringToFingerIndex = {
       0: 0,
@@ -230,8 +237,9 @@ AFRAME.registerSystem("air-violin", {
 
     const isOtherHandVisible = this.isHandVisible(this.otherSide);
     if (isOtherHandVisible) {
-      this.showEntity(this.data.bow);
+      this.updateBowPosition();
       this.updateBowRotation();
+      this.showEntity(this.data.bow);
     } else {
       this.hideEntity(this.data.bow);
     }
@@ -289,11 +297,6 @@ AFRAME.registerSystem("air-violin", {
       this.hand.jointsAPI.getRingTip().getDirection(),
       this.hand.jointsAPI.getLittleTip().getDirection(),
     ];
-    /*
-    this.fingerCurls = this.fingerDirections.map(
-      (direction) => -direction.dot(this.normalizedViolinToHandVector)
-    );
-    */
     this.fingerCurls = this.fingerDirections.map(
       (direction) => -direction.y
     );
@@ -445,8 +448,34 @@ AFRAME.registerSystem("air-violin", {
     return THREE.MathUtils.lerp(fromPosition, toPosition, transposition % 1);
   },
 
+  updateBowPosition: function() {
+    if (!this.otherHand.jointsAPI) {
+      return;
+    }
+    const wristPosition = this.otherHand.jointsAPI.getWrist().getPosition()
+    this.data.bow.object3D.position.copy(wristPosition)
+  },
   updateBowRotation: function () {
-    // FILL
+    if (!this.otherHand.jointsAPI) {
+      return;
+    }
+    
+    this.defaultBowEuler = this.defaultBowEuler || new THREE.Euler(0, 1.1, -0.5);
+    
+    let isBowUsed = this.isStringUsed.some(Boolean)
+    if (isBowUsed) {
+      // FILL - touch strings
+    }
+    else {
+      if (this.isBowUsed !== isBowUsed) {
+        this.bowEntity.object3D.rotation.copy(this.defaultBowEuler)
+      }
+      
+      const wristQuaternion = this.otherHand.jointsAPI.getWrist().getQuaternion()
+      this.data.bow.object3D.quaternion.copy(wristQuaternion)
+    }
+    
+    this.isBowUsed = isBowUsed
   },
 
   getClosestStringIndex: function (pitch, fingerIndex = 0) {
