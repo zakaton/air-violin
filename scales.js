@@ -56,7 +56,7 @@ const scale = {
       this.update();
     }
   },
-  
+
   _isPentatonic: false,
   get isPentatonic() {
     return this._isPentatonic;
@@ -78,7 +78,7 @@ const scale = {
       this.update();
     }
   },
-  
+
   _isPerfect: false,
   get isPerfect() {
     return this._isPerfect;
@@ -138,18 +138,30 @@ const scale = {
 
   idealIntervals: [
     1,
-    17 / 16,
-    9 / 8,
-    6 / 5,
-    5 / 4,
-    4 / 3,
-    7 / 5,
-    3 / 2,
-    8 / 5,
-    5 / 3,
-    7 / 4,
-    15 / 8,
+    17 / 16, // minor second
+    9 / 8, // major second
+    6 / 5, // minor third
+    5 / 4, // major third
+    4 / 3, // perfect fourth
+    7 / 5, // tritone
+    3 / 2, // perfect fifth
+    8 / 5, // minor sixth
+    5 / 3, // major sixth
+    7 / 4, // minor seventh
+    15 / 8, // major seventh
   ],
+  chords: {
+    // relative to the root and each other
+    major: [4, 3],
+    minor: [3, 4],
+    suspendedSecond: [2, 5],
+    suspendedFourth: [5, 2],
+    diminished: [3, 3],
+    augmented: [4, 4],
+    seventh: [4, 3, 3],
+    minorSeventh: [3, 4, 3],
+    majorSeventh: [4, 3, 4],
+  },
 
   allScales: {},
   patterns: {
@@ -196,14 +208,13 @@ const scale = {
       this.keyToScales[keyName] = scales;
     });
     for (const keyName in this.keyToScales) {
-      const keyNames = keyName.split(',')
+      const keyNames = keyName.split(",");
       if (keyNames.length > 1) {
-        keyNames.forEach(_keyName => {
-          this.keyToScales[_keyName] = this.keyToScales[keyName]
-        })
+        keyNames.forEach((_keyName) => {
+          this.keyToScales[_keyName] = this.keyToScales[keyName];
+        });
       }
     }
-    
   },
 
   lastNKeysPlayed: [],
