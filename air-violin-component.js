@@ -11,13 +11,13 @@ AFRAME.registerSystem("air-violin", {
     curlThreshold: { type: "number", default: -0.7 },
     maxCurlThreshold: { type: "number", default: 0.6 },
     maxStrings: { type: "number", default: 2 },
-    instrument: {type: "string", default: "wav"}
+    instrument: { type: "string", default: "wav" },
   },
   init: function () {
     window.airViolin = this;
-    this.instrumentClass = instruments.Violin.getByType(this.data.instrument)
+    this.instrumentClass = instruments.Violin.getByType(this.data.instrument);
     this.instrument = new this.instrumentClass();
-    this.instrument.toDestination()
+    this.instrument.toDestination();
 
     // https://github.com/Tonejs/Tone.js/blob/r11/Tone/type/Frequency.js#L261
     this.A4 = 440;
@@ -78,8 +78,8 @@ AFRAME.registerSystem("air-violin", {
     this.noteTextEntities = this.noteEntities.map((noteEntity) =>
       noteEntity.querySelector("a-text")
     );
-    
-    this.bowEntity = this.data.bow.querySelector("#bowEntity")
+
+    this.bowEntity = this.data.bow.querySelector("#bowEntity");
     this.isBowUsed = null;
 
     this.fingerStringToFingerIndex = {
@@ -297,9 +297,12 @@ AFRAME.registerSystem("air-violin", {
       this.hand.jointsAPI.getRingTip().getDirection(),
       this.hand.jointsAPI.getLittleTip().getDirection(),
     ];
-    this.fingerCurls = this.fingerDirections.map(
-      (direction) => -direction.y
-    );
+
+    this.fingerCurls = this.fingerDirections.map((direction) => {
+      const isFingerCurlingTowardsCamera =
+        -direction.dot(this.normalizedViolinToHandVector) > 0;
+      return isFingerCurlingTowardsCamera ? -direction.y : -1;
+    });
   },
   updateFingerNotes: function () {
     let numberOfStringsUsed = 0;
@@ -339,7 +342,7 @@ AFRAME.registerSystem("air-violin", {
           this.data.maxCurlThreshold,
           fingerCurl
         );
-        interpolation = THREE.MathUtils.clamp(interpolation, 0, 1)
+        interpolation = THREE.MathUtils.clamp(interpolation, 0, 1);
         this.updateFingerNote(interpolation, fingerIndex);
 
         this.showEntity(this.fingerEntities[fingerIndex]);
@@ -383,7 +386,7 @@ AFRAME.registerSystem("air-violin", {
             let _scaleFrequencies = scaleFrequencies.slice();
             let foundPreviousFrequency = false;
             for (
-              let _fingerIndex = fingerIndex-1;
+              let _fingerIndex = fingerIndex - 1;
               !foundPreviousFrequency && _fingerIndex >= 0;
               _fingerIndex--
             ) {
@@ -394,7 +397,7 @@ AFRAME.registerSystem("air-violin", {
                 const midi = _frequencyObject.toMidi();
                 const frequency = _frequencyObject.toFrequency();
                 _scaleFrequencies = _scaleFrequencies.filter(
-                  ({frequency: scaleFrequencyObject}) => {
+                  ({ frequency: scaleFrequencyObject }) => {
                     const _midi = scaleFrequencyObject.toMidi();
                     const semitones = (_midi - midi) % 12;
                     return semitones > 2;
@@ -448,34 +451,39 @@ AFRAME.registerSystem("air-violin", {
     return THREE.MathUtils.lerp(fromPosition, toPosition, transposition % 1);
   },
 
-  updateBowPosition: function() {
+  updateBowPosition: function () {
     if (!this.otherHand.jointsAPI) {
       return;
     }
-    const wristPosition = this.otherHand.jointsAPI.getWrist().getPosition()
-    this.data.bow.object3D.position.copy(wristPosition)
+    const wristPosition = this.otherHand.jointsAPI.getWrist().getPosition();
+    this.data.bow.object3D.position.copy(wristPosition);
   },
   updateBowRotation: function () {
     if (!this.otherHand.jointsAPI) {
       return;
     }
-    
-    this.defaultBowEuler = this.defaultBowEuler || new THREE.Euler(0, 1.1, -0.5);
-    
-    let isBowUsed = this.isStringUsed.some(Boolean)
+
+    this.defaultBowEuler =
+      this.defaultBowEuler || new THREE.Euler(0, 1.1, -0.5);
+
+    let isBowUsed = this.isStringUsed.some(Boolean);
     if (isBowUsed) {
-      // FILL - touch strings
-    }
-    else {
+      // FILL - angle violin so it goes through strings
+      // get vector from bowEntity to some point on violin
+      // get angle of vector
+      // rotate bow to touch point
+    } else {
       if (this.isBowUsed !== isBowUsed) {
-        this.bowEntity.object3D.rotation.copy(this.defaultBowEuler)
+        this.bowEntity.object3D.rotation.copy(this.defaultBowEuler);
       }
-      
-      const wristQuaternion = this.otherHand.jointsAPI.getWrist().getQuaternion()
-      this.data.bow.object3D.quaternion.copy(wristQuaternion)
+
+      const wristQuaternion = this.otherHand.jointsAPI
+        .getWrist()
+        .getQuaternion();
+      this.data.bow.object3D.quaternion.copy(wristQuaternion);
     }
-    
-    this.isBowUsed = isBowUsed
+
+    this.isBowUsed = isBowUsed;
   },
 
   getClosestStringIndex: function (pitch, fingerIndex = 0) {

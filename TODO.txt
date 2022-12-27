@@ -1,6 +1,5 @@
-bind bow to strings if at least 1 string
 put bow through violin if bound
-volume is proportional to lateral movement
+get motion towards violin (trigger or change volume of instruments)
 
 tonejs instrument
   1 per string
