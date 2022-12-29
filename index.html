@@ -9,9 +9,10 @@
     <script src="/scales.js"></script>
     <script src="/instruments/index.js" type="module"></script>
     <script src="/air-violin-component.js" defer></script>
-    <script src="/shadow-material-component.js"></script>
-    <script src="/detected-planes-component.js"></script>
-    <script src="/resonance-audio-component.js"></script>
+    
+    <script _src="/shadow-material-component.js"></script>
+    <script _src="/detected-planes-component.js"></script>
+    <script _src="/resonance-audio-component.js"></script>
   </head>
   <body>
     <a-scene
@@ -311,7 +312,7 @@
       </a-camera>
 
       <a-entity
-        visible="true"
+        visible="false"
         id="leftHandControls"
         hand-tracking-controls="hand: left;"
         hand-tracking-extras

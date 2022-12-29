@@ -9,7 +9,7 @@ AFRAME.registerSystem("air-violin", {
     bow: { type: "selector" },
     camera: { type: "selector", default: "[camera]" },
     curlThreshold: { type: "number", default: -0.7 },
-    maxCurlThreshold: { type: "number", default: 0.6 },
+    maxCurlThreshold: { type: "number", default: 0.3 },
     maxStrings: { type: "number", default: 4 },
     instrument: { type: "string", default: "wav" },
     scaleText: { type: "selector" },
