@@ -10,17 +10,17 @@
     <script src="/instruments/index.js" type="module"></script>
     <script src="/air-violin-component.js" defer></script>
     <script src="/shadow-material-component.js"></script>
-    <script src="/plane-detection-component.js"></script>
+    <script src="/detected-planes-component.js"></script>
     <script src="/resonance-audio-component.js"></script>
   </head>
   <body>
     <a-scene
+      webxr="requiredFeatures: plane-detection,local-floor;"
+      detected-planes
+      resonance-audio
       shadow="type: pcfsoft"
       renderer="colorManagement:true; toneMapping:ACESFilmic;"
       air-violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; scaleText: #scaleText; violin: #violin; bow: #bow; camera: #camera"
-      webxr="requiredFeatures: plane-detection,local-floor;"
-      plane-detection
-      resonance-audio
     >
       <a-assets>
         <a-asset-item
@@ -311,7 +311,7 @@
       </a-camera>
 
       <a-entity
-        visible="false"
+        visible="true"
         id="leftHandControls"
         hand-tracking-controls="hand: left;"
         hand-tracking-extras

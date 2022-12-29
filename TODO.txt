@@ -1,2 +1,4 @@
-plane detection component
+
+
+plane detection component (doesn't work with all the assets for some reason)
 resonance audio (use plane detection for room)

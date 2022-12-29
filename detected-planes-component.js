@@ -1,11 +1,10 @@
 /* global AFRAME, THREE */
-
 // https://github.com/immersive-web/webxr-samples/blob/main/proposals/plane-detection.html
 AFRAME.registerSystem("plane-detection", {
   schema: {
     verticalColor: { type: "color", default: "red" },
     horizontalColor: { type: "color", default: "blue" },
-    showWalls: {type: "boolean", default: true}
+    showWalls: { type: "boolean", default: true },
   },
   init: function () {
     window.detectedPlanesSystem = this;
@@ -17,11 +16,12 @@ AFRAME.registerSystem("plane-detection", {
     }
 
     this.frame = this.el.sceneEl.frame;
+    
     if (this.frame && this.referenceSpace) {
       const { detectedPlanes } = this.frame;
       if (!this.detectedPlanes && detectedPlanes.size > 0) {
         this.detectedPlanes = detectedPlanes;
-        console.log("detectedPlanes", detectedPlanes)
+        console.log("detectedPlanes", detectedPlanes);
         this.setupPlanes();
       }
     }
@@ -36,11 +36,11 @@ AFRAME.registerSystem("plane-detection", {
     const correctionQuaternion = new THREE.Quaternion();
     correctionQuaternion.setFromEuler(correctionEuler);
 
-    this.detectedPlaneEntities?.forEach(entity => {
+    this.detectedPlaneEntities?.forEach((entity) => {
       entity.remove();
-    })
+    });
     this.detectedPlaneEntities = [];
-    
+
     this.detectedPlanes.forEach((plane) => {
       const planePose = this.frame.getPose(
         plane.planeSpace,
@@ -65,22 +65,21 @@ AFRAME.registerSystem("plane-detection", {
             ? this.data.horizontalColor
             : this.data.verticalColor
         );
-        let materialProperty = "side: double;"
+        let materialProperty = "side: double;";
         if (this.data.showWalls) {
-          materialProperty += " opacity: 0.3;"
-        }
-        else {
+          materialProperty += " opacity: 0.3;";
+        } else {
           planeEntity.setAttribute("shadow-material", "");
         }
         planeEntity.setAttribute("material", materialProperty);
         planeEntity.object3D.position.copy(planePose.transform.position);
         planeEntity.object3D.quaternion.copy(planePose.transform.orientation);
         planeEntity.object3D.quaternion.multiply(correctionQuaternion);
-        planeEntity.dataset.detectedPlane = '';
-        planeEntity.setAttribute("visible", "false")
-        planeEntity.classList.add("allow-ray")
+        planeEntity.dataset.detectedPlane = "";
+        planeEntity.setAttribute("visible", "false");
+        planeEntity.classList.add("allow-ray");
         this.sceneEl.appendChild(planeEntity);
-        this.detectedPlaneEntities.push(planeEntity)
+        this.detectedPlaneEntities.push(planeEntity);
       }
     });
   },
