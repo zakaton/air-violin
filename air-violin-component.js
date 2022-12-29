@@ -75,6 +75,26 @@ AFRAME.registerSystem("air-violin", {
     this.otherHand.addEventListener("hand-tracking-extras-ready", (event) => {
       this.otherHand.jointsAPI = event.detail.data.jointAPI;
     });
+    this.numberOfPinches = 0;
+    this.resetNumberOfPinches = AFRAME.utils.debounce(
+      () => (this.numberOfPinches = 0),
+      1000
+    );
+    this.onPinch = () => {
+      if (this.isBowUsed) {
+        return;
+      }
+      
+      this.numberOfPinches++;
+      if (this.numberOfPinches > 1) {
+        this.updateMode(1);
+        this.numberOfPinches = 0;
+      }
+      this.resetNumberOfPinches();
+    };
+    this.otherHand.addEventListener("pinchstarted", (event) => {
+      this.onPinch();
+    });
 
     this.violinModelEntity = this.data.violin.querySelector("[gltf-model]");
 
@@ -174,10 +194,10 @@ AFRAME.registerSystem("air-violin", {
     this.isStringUsed = new Array(this.fingerNotes.length).fill(false);
 
     this.scale = scale;
-    this.setScaleRoot("G")
+    this.setScaleRoot("G");
   },
   updateScaleFrequencies: function () {
-    this.setText(this.data.scaleText, this.scale.name)
+    this.setText(this.data.scaleText, this.scale.name);
     this.scaleFrequencies = this.stringFrequencies.map(
       (fingerFrequencies, stringIndex) =>
         fingerFrequencies
@@ -236,11 +256,11 @@ AFRAME.registerSystem("air-violin", {
     switch (this.mode) {
       case "continuous":
       case "notes":
-        this.hideEntity(this.data.scaleText.parentEl)
+        this.hideEntity(this.data.scaleText.parentEl);
         break;
-        case "scale":
+      case "scale":
       case "perfect":
-        this.showEntity(this.data.scaleText.parentEl)
+        this.showEntity(this.data.scaleText.parentEl);
         break;
       default:
         break;
@@ -418,7 +438,7 @@ AFRAME.registerSystem("air-violin", {
             let foundPreviousFrequency = false;
             for (
               let _fingerIndex = fingerIndex - 1;
-              !foundPreviousFrequency && _fingerIndex >= 0;
+              /*!foundPreviousFrequency &&*/ _fingerIndex >= 0;
               _fingerIndex--
             ) {
               if (this.isStringUsed[_fingerIndex]) {
@@ -447,7 +467,9 @@ AFRAME.registerSystem("air-violin", {
 
           scaleFrequencyIndex = Math.floor(scaleFrequencyIndex);
           const scaleFrequency = scaleFrequencies[scaleFrequencyIndex];
-          transposition = scaleFrequency.index;
+          if (scaleFrequency) {
+            transposition = scaleFrequency.index;
+          }
         }
         break;
     }
@@ -558,12 +580,18 @@ AFRAME.registerSystem("air-violin", {
               let pitchBend;
 
               if (isPlaying) {
-                pitchBend =
+                const midiDifference =
                   this.getRawMidi(frequency.toFrequency()) - instrument._midi;
+                if (this.mode == "continuous") {
+                  pitchBend = midiDifference;
+                } else {
+                  if (Math.abs(midiDifference) >= 1) {
+                    this.clearInstrument(index);
+                    this.playInstrument(index, frequency)
+                  }
+                }
               } else {
-                instrument.triggerAttack(frequency);
-                instrument._midi = this.getRawMidi(frequency.toFrequency());
-                this.isPlaying[index] = true;
+                this.playInstrument(index, frequency)
               }
               this.throttledUpdateInstrument[index](gain, pitchBend);
             } else {
@@ -584,6 +612,14 @@ AFRAME.registerSystem("air-violin", {
     return 69 + (12 * Math.log(pitch / this.A4)) / Math.LN2;
   },
 
+  playInstrument: function(index, frequency) {
+    if (!this.isPlaying[index]) {
+      this.isPlaying[index] = true;
+      const instrument = this.instruments[index]
+      instrument.triggerAttack(frequency);
+      instrument._midi = this.getRawMidi(frequency.toFrequency());
+    }
+  },
   clearInstrument: function (index) {
     if (this.isPlaying[index]) {
       this.isPlaying[index] = false;
@@ -636,17 +672,17 @@ AFRAME.registerSystem("air-violin", {
       }
     }
   },
-  
-  setScaleIsMajor: function(isMajor) {
-    this.scale.isMajor = isMajor
+
+  setScaleIsMajor: function (isMajor) {
+    this.scale.isMajor = isMajor;
     this.updateScaleFrequencies();
   },
-  setScaleRoot: function(root) {
-    this.scale.root = root
+  setScaleRoot: function (root) {
+    this.scale.root = root;
     this.updateScaleFrequencies();
   },
-  setScalePitch: function(pitch) {
-    this.scale.pitch = pitch
+  setScalePitch: function (pitch) {
+    this.scale.pitch = pitch;
     this.updateScaleFrequencies();
   },
 

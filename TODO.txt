@@ -1,5 +1,2 @@
-double pinch to cycle modes
-fix "perfect" - what sounds good? 2+ semitones away from the other notes? 2+ notes on that scale?
-
-plane detection component (use shadow materials for walls)
+plane detection component
 resonance audio (use plane detection for room)

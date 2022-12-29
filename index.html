@@ -2,20 +2,25 @@
   <head>
     <title>AiR Violin</title>
     <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/resonance-audio/build/resonance-audio.min.js"></script>
     <script _src="/aframe.min.js"></script>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://gftruj.github.io/hand.tracking.controls.extras/dist/aframe-hand-tracking-controls-extras.js"></script>
     <script src="/scales.js"></script>
     <script src="/instruments/index.js" type="module"></script>
     <script src="/air-violin-component.js" defer></script>
+    <script src="/shadow-material-component.js"></script>
+    <script src="/plane-detection-component.js"></script>
+    <script src="/resonance-audio-component.js"></script>
   </head>
   <body>
     <a-scene
       shadow="type: pcfsoft"
       renderer="colorManagement:true; toneMapping:ACESFilmic;"
       air-violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; scaleText: #scaleText; violin: #violin; bow: #bow; camera: #camera"
-      resonance-audio
+      webxr="requiredFeatures: plane-detection,local-floor;"
       plane-detection
+      resonance-audio
     >
       <a-assets>
         <a-asset-item
@@ -281,7 +286,7 @@
               ></a-plane>
             </a-entity>
           </a-entity>
-          
+
           <a-entity position="0.25 0.12 0" scale="0.2 0.2 0.2">
             <a-text
               id="scaleText"
@@ -321,12 +326,9 @@
 
       <a-entity visible="false" id="bow" _scale="8 8 8">
         <a-entity id="bowPositionOffset" position="0 -0.03 -0.08">
-          <a-entity
-          id="bowEntity"
-          gltf-model="#bowModel"
-        >
-          <a-sphere visible="false" color="orange" radius="0.004"></a-sphere>
-        </a-entity>
+          <a-entity id="bowEntity" gltf-model="#bowModel">
+            <a-sphere visible="false" color="orange" radius="0.004"></a-sphere>
+          </a-entity>
         </a-entity>
       </a-entity>
     </a-scene>
