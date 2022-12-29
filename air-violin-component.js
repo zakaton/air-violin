@@ -10,14 +10,11 @@ AFRAME.registerSystem("air-violin", {
     camera: { type: "selector", default: "[camera]" },
     curlThreshold: { type: "number", default: -0.7 },
     maxCurlThreshold: { type: "number", default: 0.6 },
-    maxStrings: { type: "number", default: 2 },
+    maxStrings: { type: "number", default: 4 },
     instrument: { type: "string", default: "wav" },
   },
   init: function () {
     window.airViolin = this;
-    this.instrumentClass = instruments.Violin.getByType(this.data.instrument);
-    this.instrument = new this.instrumentClass();
-    this.instrument.toDestination();
 
     // https://github.com/Tonejs/Tone.js/blob/r11/Tone/type/Frequency.js#L261
     this.A4 = 440;
@@ -44,6 +41,24 @@ AFRAME.registerSystem("air-violin", {
     Object.values(this.noteToFingerings).forEach((noteFingerings) =>
       noteFingerings.reverse()
     );
+
+    this.instrumentClass = instruments.Violin.getByType(this.data.instrument);
+    this.instruments = this.stringFrequencies.map(
+      (_) => new this.instrumentClass()
+    );
+    this.pitchBends = this.instruments.map((instrument) => {
+      const pitchBend = new Tone.PitchShift();
+      instrument.connect(pitchBend);
+      return pitchBend;
+    });
+    this.gains = this.pitchBends.map((pitchBend) => {
+      const gain = new Tone.Gain(0).toDestination();
+      pitchBend.connect(gain);
+      return gain;
+    });
+    this.isPlaying = this.pitchBends.map((_) => false);
+    this.bowMovementThreshold = 0.02;
+    this.bowMovementMax = 0.7;
 
     this.otherSide = this.data.side == "left" ? "right" : "left";
 
@@ -81,6 +96,8 @@ AFRAME.registerSystem("air-violin", {
 
     this.bowEntity = this.data.bow.querySelector("#bowEntity");
     this.isBowUsed = null;
+
+    this.bowConnection = this.data.violin.querySelector(".bowConnection");
 
     this.fingerStringToFingerIndex = {
       0: 0,
@@ -142,7 +159,7 @@ AFRAME.registerSystem("air-violin", {
     });
 
     this.modes = ["continuous", "notes", "scale", "perfect"];
-    this.modeIndex = 1;
+    this.modeIndex = 2;
     this.onModeIndexUpdate();
 
     this.violinPitchOffset = 0.1;
@@ -153,7 +170,7 @@ AFRAME.registerSystem("air-violin", {
     this.isStringUsed = new Array(this.fingerNotes.length).fill(false);
 
     this.scale = scale;
-    //this.scale.root = "D"
+    this.scale.root = "E";
     this.updateScaleFrequencies();
   },
   updateScaleFrequencies: function () {
@@ -213,7 +230,6 @@ AFRAME.registerSystem("air-violin", {
     this.data.modeText.setAttribute("value", this.mode);
 
     switch (this.mode) {
-      // FILL
       default:
         break;
     }
@@ -224,7 +240,7 @@ AFRAME.registerSystem("air-violin", {
     return hand.components["hand-tracking-controls"]?.mesh?.visible;
   },
 
-  tick: function () {
+  tick: function (time, timeDelta) {
     const isHandVisible = this.isHandVisible(this.data.side);
     if (isHandVisible) {
       this.showEntity(this.data.violin);
@@ -233,15 +249,18 @@ AFRAME.registerSystem("air-violin", {
       this.updateFingerNotes();
     } else {
       this.hideEntity(this.data.violin);
+      this.isStringUsed.fill(false)
     }
 
     const isOtherHandVisible = this.isHandVisible(this.otherSide);
     if (isOtherHandVisible) {
       this.updateBowPosition();
       this.updateBowRotation();
+      this.updateInstrument(timeDelta);
       this.showEntity(this.data.bow);
     } else {
       this.hideEntity(this.data.bow);
+      this.clearInstruments();
     }
   },
   setEntityVisibility: function (entity, visibility) {
@@ -463,27 +482,106 @@ AFRAME.registerSystem("air-violin", {
       return;
     }
 
-    this.defaultBowEuler =
-      this.defaultBowEuler || new THREE.Euler(0, 1.1, -0.5);
-
     let isBowUsed = this.isStringUsed.some(Boolean);
-    if (isBowUsed) {
-      // FILL - angle violin so it goes through strings
-      // get vector from bowEntity to some point on violin
-      // get angle of vector
-      // rotate bow to touch point
-    } else {
-      if (this.isBowUsed !== isBowUsed) {
-        this.bowEntity.object3D.rotation.copy(this.defaultBowEuler);
-      }
 
-      const wristQuaternion = this.otherHand.jointsAPI
-        .getWrist()
-        .getQuaternion();
-      this.data.bow.object3D.quaternion.copy(wristQuaternion);
+    if (!isBowUsed && this.isBowUsed !== isBowUsed) {
+      this.defaultBowEuler =
+        this.defaultBowEuler || new THREE.Euler(0, 1.1, -0.5);
+      this.bowEntity.object3D.rotation.copy(this.defaultBowEuler);
+    }
+
+    const wristQuaternion = this.otherHand.jointsAPI.getWrist().getQuaternion();
+    this.data.bow.object3D.quaternion.copy(wristQuaternion);
+
+    if (isBowUsed) {
+      this.worldBowPosition = this.worldBowPosition || new THREE.Vector3();
+      this.bowEntity.object3D.getWorldPosition(this.worldBowPosition);
+      this.bowConnectionPosition =
+        this.bowConnectionPosition || new THREE.Vector3();
+      this.bowConnection.object3D.getWorldPosition(this.bowConnectionPosition);
+
+      this.bowToViolinVector = this.bowToViolinVector || new THREE.Vector3();
+      this.bowToViolinVector.subVectors(
+        this.bowConnectionPosition,
+        this.worldBowPosition
+      );
+
+      this.bowSpherical = this.bowSpherical || new THREE.Spherical();
+      this.bowSpherical.setFromVector3(this.bowToViolinVector);
+
+      this.inverseWristQuaternion =
+        this.inverseWristQuaternion || new THREE.Quaternion();
+      this.inverseWristQuaternion.copy(wristQuaternion).invert();
+
+      const pitch = Math.PI / 2 - this.bowSpherical.phi;
+      const yaw = this.bowSpherical.theta + Math.PI;
+      this.bowEuler = this.bowEuler || new THREE.Euler(0, 0, 0, "YXZ");
+      this.bowEuler.set(pitch, yaw, 0);
+      this.bowEntity.object3D.quaternion
+        .setFromEuler(this.bowEuler)
+        .premultiply(this.inverseWristQuaternion);
     }
 
     this.isBowUsed = isBowUsed;
+  },
+
+  updateInstrument: function (timeDelta) {
+    // FIX
+    if (this.isBowUsed) {
+      const bowDistance = this.bowSpherical.radius;
+      if (this.previousBowDistance) {
+        const bowMovement = 1000 * Math.abs(bowDistance - this.previousBowDistance) / timeDelta
+        // FILL - smooth signal
+        if (bowMovement > this.bowMovementThreshold) {
+          let gain = THREE.MathUtils.inverseLerp(
+            this.bowMovementThreshold,
+            this.bowMovementMax,
+            bowMovement
+          );
+          gain = THREE.MathUtils.clamp(gain, 0, 2);
+          //gain = 1;
+
+          this.instruments.forEach((instrument, index) => {
+            const isPlaying = this.isPlaying[index];
+            const pitchBend = this.pitchBends[index];
+            const gainNode = this.gains[index];
+            if (this.isStringUsed[index]) {
+              gainNode.gain.rampTo(gain);
+              const frequency = this.fingerNotes[index];
+
+              if (isPlaying) {
+                const midi = frequency.toMidi() - instrument._midi;
+                //pitchBend.pitch = instrument._midi;
+              } else {
+                instrument.triggerAttack(frequency);
+                instrument._midi = frequency.toMidi();
+                this.isPlaying[index] = true;
+                //gainNode.gain.rampTo(1); // REMOVE
+              }
+            } else {
+              this.clearInstrument(index);
+            }
+          });
+        } else {
+          this.clearInstruments();
+        }
+      }
+      this.previousBowDistance = bowDistance;
+    } else {
+      this.clearInstruments();
+    }
+  },
+
+  clearInstrument: function (index) {
+    if (this.isPlaying[index]) {
+      this.isPlaying[index] = false;
+      this.instruments[index].releaseAll(Tone.now());
+      this.gains[index].gain.rampTo(0);
+      this.pitchBends[index].pitch = 0;
+    }
+  },
+  clearInstruments: function () {
+    this.instruments.forEach((_, index) => this.clearInstrument(index));
   },
 
   getClosestStringIndex: function (pitch, fingerIndex = 0) {

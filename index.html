@@ -14,6 +14,8 @@
       shadow="type: pcfsoft"
       renderer="colorManagement:true; toneMapping:ACESFilmic;"
       air-violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; violin: #violin; bow: #bow; camera: #camera"
+      resonance-audio
+      plane-detection
     >
       <a-assets>
         <a-asset-item
@@ -40,6 +42,14 @@
               visible="false"
               color="red"
               radius="0.002"
+            ></a-sphere>
+
+            <a-sphere
+              class="bowConnection"
+              visible="false"
+              color="orange"
+              radius="0.004"
+              position="0 0.305 -0.01"
             ></a-sphere>
 
             <a-entity position="-0.008 0 0">
@@ -287,9 +297,16 @@
         hand-tracking-extras
       >
       </a-entity>
-      
+
       <a-entity visible="false" id="bow" _scale="8 8 8">
-        <a-entity id="bowEntity" gltf-model="#bowModel" position="0 -0.03 -0.08"></a-entity>
+        <a-entity id="bowPositionOffset" position="0 -0.03 -0.08">
+          <a-entity
+          id="bowEntity"
+          gltf-model="#bowModel"
+        >
+          <a-sphere visible="false" color="orange" radius="0.004"></a-sphere>
+        </a-entity>
+        </a-entity>
       </a-entity>
     </a-scene>
   </body>

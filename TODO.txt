@@ -1,11 +1,9 @@
-put bow through violin if bound
-get motion towards violin (trigger or change volume of instruments)
+debug
+  pitch
 
-tonejs instrument
-  1 per string
-  changing pitch for continuous uses a pitchshift
-  for notes/scale/perfect, just end current and play new
+display key in text
+double pinch to cycle modes
+fix "perfect" - what sounds good? 2+ semitones away from the other notes? 2+ notes on that scale?
 
-fix "perfect" - what sounds good?
-
-plane detection for resonance audio & shadow
+plane detection component (use shadow materials for walls)
+resonance audio (use plane detection for room)
