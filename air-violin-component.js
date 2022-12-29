@@ -12,6 +12,7 @@ AFRAME.registerSystem("air-violin", {
     maxCurlThreshold: { type: "number", default: 0.6 },
     maxStrings: { type: "number", default: 4 },
     instrument: { type: "string", default: "wav" },
+    scaleText: { type: "selector" },
   },
   init: function () {
     window.airViolin = this;
@@ -60,6 +61,9 @@ AFRAME.registerSystem("air-violin", {
     this.bowMovementThreshold = 0.02;
     this.bowMovementMax = 0.7;
 
+    this.throttledUpdateInstrument = this.instruments.map((_, index) => {
+      return AFRAME.utils.throttle(this.updateInstrument.bind(this, index), 20);
+    });
     this.otherSide = this.data.side == "left" ? "right" : "left";
 
     this.hand = this.data[`${this.data.side}Hand`];
@@ -170,10 +174,10 @@ AFRAME.registerSystem("air-violin", {
     this.isStringUsed = new Array(this.fingerNotes.length).fill(false);
 
     this.scale = scale;
-    this.scale.root = "E";
-    this.updateScaleFrequencies();
+    this.setScaleRoot("G")
   },
   updateScaleFrequencies: function () {
+    this.setText(this.data.scaleText, this.scale.name)
     this.scaleFrequencies = this.stringFrequencies.map(
       (fingerFrequencies, stringIndex) =>
         fingerFrequencies
@@ -230,6 +234,14 @@ AFRAME.registerSystem("air-violin", {
     this.data.modeText.setAttribute("value", this.mode);
 
     switch (this.mode) {
+      case "continuous":
+      case "notes":
+        this.hideEntity(this.data.scaleText.parentEl)
+        break;
+        case "scale":
+      case "perfect":
+        this.showEntity(this.data.scaleText.parentEl)
+        break;
       default:
         break;
     }
@@ -249,14 +261,14 @@ AFRAME.registerSystem("air-violin", {
       this.updateFingerNotes();
     } else {
       this.hideEntity(this.data.violin);
-      this.isStringUsed.fill(false)
+      this.isStringUsed.fill(false);
     }
 
     const isOtherHandVisible = this.isHandVisible(this.otherSide);
     if (isOtherHandVisible) {
       this.updateBowPosition();
       this.updateBowRotation();
-      this.updateInstrument(timeDelta);
+      this.updateInstruments(timeDelta);
       this.showEntity(this.data.bow);
     } else {
       this.hideEntity(this.data.bow);
@@ -525,13 +537,12 @@ AFRAME.registerSystem("air-violin", {
     this.isBowUsed = isBowUsed;
   },
 
-  updateInstrument: function (timeDelta) {
-    // FIX
+  updateInstruments: function (timeDelta) {
     if (this.isBowUsed) {
       const bowDistance = this.bowSpherical.radius;
       if (this.previousBowDistance) {
-        const bowMovement = 1000 * Math.abs(bowDistance - this.previousBowDistance) / timeDelta
-        // FILL - smooth signal
+        const bowMovement =
+          (1000 * Math.abs(bowDistance - this.previousBowDistance)) / timeDelta;
         if (bowMovement > this.bowMovementThreshold) {
           let gain = THREE.MathUtils.inverseLerp(
             this.bowMovementThreshold,
@@ -539,25 +550,22 @@ AFRAME.registerSystem("air-violin", {
             bowMovement
           );
           gain = THREE.MathUtils.clamp(gain, 0, 2);
-          //gain = 1;
 
           this.instruments.forEach((instrument, index) => {
             const isPlaying = this.isPlaying[index];
-            const pitchBend = this.pitchBends[index];
-            const gainNode = this.gains[index];
             if (this.isStringUsed[index]) {
-              gainNode.gain.rampTo(gain);
               const frequency = this.fingerNotes[index];
+              let pitchBend;
 
               if (isPlaying) {
-                const midi = frequency.toMidi() - instrument._midi;
-                //pitchBend.pitch = instrument._midi;
+                pitchBend =
+                  this.getRawMidi(frequency.toFrequency()) - instrument._midi;
               } else {
                 instrument.triggerAttack(frequency);
-                instrument._midi = frequency.toMidi();
+                instrument._midi = this.getRawMidi(frequency.toFrequency());
                 this.isPlaying[index] = true;
-                //gainNode.gain.rampTo(1); // REMOVE
               }
+              this.throttledUpdateInstrument[index](gain, pitchBend);
             } else {
               this.clearInstrument(index);
             }
@@ -571,17 +579,30 @@ AFRAME.registerSystem("air-violin", {
       this.clearInstruments();
     }
   },
+  getRawMidi: function (pitch) {
+    // https://github.com/Tonejs/Tone.js/blob/f0bddd08ab091877e63cac2b9a5aa56be29a5a47/Tone/type/Frequency.js#L281
+    return 69 + (12 * Math.log(pitch / this.A4)) / Math.LN2;
+  },
 
   clearInstrument: function (index) {
     if (this.isPlaying[index]) {
       this.isPlaying[index] = false;
       this.instruments[index].releaseAll(Tone.now());
-      this.gains[index].gain.rampTo(0);
-      this.pitchBends[index].pitch = 0;
+      this.throttledUpdateInstrument[index](0, 0);
     }
   },
   clearInstruments: function () {
     this.instruments.forEach((_, index) => this.clearInstrument(index));
+  },
+  updateInstrument: function (index, gain, pitchBend) {
+    if (this.isPlaying[index]) {
+      if (gain !== undefined) {
+        this.gains[index].gain.rampTo(gain);
+      }
+      if (pitchBend !== undefined) {
+        this.pitchBends[index].pitch = pitchBend;
+      }
+    }
   },
 
   getClosestStringIndex: function (pitch, fingerIndex = 0) {
@@ -614,6 +635,19 @@ AFRAME.registerSystem("air-violin", {
         text.setAttribute("color", color);
       }
     }
+  },
+  
+  setScaleIsMajor: function(isMajor) {
+    this.scale.isMajor = isMajor
+    this.updateScaleFrequencies();
+  },
+  setScaleRoot: function(root) {
+    this.scale.root = root
+    this.updateScaleFrequencies();
+  },
+  setScalePitch: function(pitch) {
+    this.scale.pitch = pitch
+    this.updateScaleFrequencies();
   },
 
   getPitchOffset: function (pitch) {
