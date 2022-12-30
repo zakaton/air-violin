@@ -1,4 +1,5 @@
 // Instruments
+/*
 import BassElectric from './samples/bass-electric/index.js';
 import Bassoon from './samples/bassoon/index.js';
 import Cello from './samples/cello/index.js';
@@ -17,11 +18,12 @@ import Saxophone from './samples/saxophone/index.js';
 import Trombone from './samples/trombone/index.js';
 import Trumpet from './samples/trumpet/index.js';
 import Tuba from './samples/tuba/index.js';
+*/
 import Violin from './samples/violin/index.js';
-import Xylophone from './samples/xylophone/index.js';
-
+//import Xylophone from './samples/xylophone/index.js';
 const
   instrumentMap = {
+    /*
     'bass-electric': BassElectric,
     'bassoon': Bassoon,
     'cello': Cello,
@@ -40,10 +42,12 @@ const
     'trombone': Trombone,
     'trumpet': Trumpet,
     'tuba': Tuba,
+    */
     'violin': Violin,
-    'xylophone': Xylophone
+    //'xylophone': Xylophone
   },
   instruments = {
+    /*
     BassElectric,
     Bassoon,
     Cello,
@@ -62,11 +66,14 @@ const
     Trombone,
     Trumpet,
     Tuba,
+    */
     Violin,
-    Xylophone,
+    //Xylophone,
     getByType: function (type) {
       return instrumentMap[type];
     }
   };
+
+window.instruments = instruments
 
 export default instruments;
