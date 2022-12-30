@@ -9,7 +9,7 @@
     <script src="/scales.js"></script>
     <script src="/instruments/index.js" type="module"></script>
     <script src="/air-violin-component.js" defer></script>
-    
+
     <script _src="/shadow-material-component.js"></script>
     <script _src="/detected-planes-component.js"></script>
     <script _src="/resonance-audio-component.js"></script>
@@ -60,12 +60,8 @@
 
             <a-entity position="-0.008 0 0">
               <a-entity rotation="0.207 -0.215 1.651">
-                <a-sphere
-                  data-finger
-                  color="white"
-                  visible="false"
-                  radius="0.004"
-                ></a-sphere>
+                <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+                <a-sphere data-song-note color="red" radius="0.005"></a-sphere>
                 <a-cylinder
                   data-string
                   color="yellow"
@@ -79,6 +75,7 @@
             <a-entity position="-0.002 0 0">
               <a-entity rotation="-0.286 -0.092 0.609">
                 <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+                <a-sphere data-song-note color="red" radius="0.005"></a-sphere>
                 <a-cylinder
                   data-string
                   color="green"
@@ -92,6 +89,7 @@
             <a-entity position="0.004 0 0">
               <a-entity rotation="-0.133 0.049 -0.329">
                 <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+                <a-sphere data-song-note color="red" radius="0.005"></a-sphere>
                 <a-cylinder
                   data-string
                   color="blue"
@@ -105,6 +103,7 @@
             <a-entity position="0.009 0 0">
               <a-entity rotation="0.434 0.161 -1.108">
                 <a-sphere data-finger color="white" radius="0.004"></a-sphere>
+                <a-sphere data-song-note color="red" radius="0.005"></a-sphere>
                 <a-cylinder
                   data-string
                   color="purple"

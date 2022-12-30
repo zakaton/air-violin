@@ -16,6 +16,8 @@ AFRAME.registerSystem("air-violin", {
   },
   init: function () {
     window.airViolin = this;
+    
+    this.extraNotes = ["E5"]
 
     // https://github.com/Tonejs/Tone.js/blob/r11/Tone/type/Frequency.js#L261
     this.A4 = 440;
@@ -62,7 +64,7 @@ AFRAME.registerSystem("air-violin", {
     this.bowMovementMax = 0.7;
 
     this.throttledUpdateInstrument = this.instruments.map((_, index) => {
-      return AFRAME.utils.throttle(this.updateInstrument.bind(this, index), 20);
+      return AFRAME.utils.throttle(this.updateInstrument.bind(this, index), 10);
     });
     this.otherSide = this.data.side == "left" ? "right" : "left";
 
@@ -84,7 +86,7 @@ AFRAME.registerSystem("air-violin", {
       if (this.isBowUsed) {
         return;
       }
-      
+
       this.numberOfPinches++;
       if (this.numberOfPinches > 1) {
         this.updateMode(1);
@@ -107,6 +109,9 @@ AFRAME.registerSystem("air-violin", {
     );
     this.fingerEntities = Array.from(
       this.data.violin.querySelectorAll("[data-finger]")
+    );
+    this.songNoteEntities = Array.from(
+      this.data.violin.querySelectorAll("[data-song-note]")
     );
     this.fretEntities = Array.from(
       this.data.violin.querySelectorAll("[data-fret]")
@@ -182,8 +187,8 @@ AFRAME.registerSystem("air-violin", {
       return this.stringFrequencies[string][fingerIndex];
     });
 
-    this.modes = ["continuous", "notes", "scale", "perfect"];
-    this.modeIndex = 2;
+    this.modes = ["continuous", "notes", "scale", "perfect", "song"];
+    this.modeIndex = 4;
     this.onModeIndexUpdate();
 
     this.violinPitchOffset = 0.1;
@@ -195,6 +200,7 @@ AFRAME.registerSystem("air-violin", {
 
     this.scale = scale;
     this.setScaleRoot("G");
+    this.setScaleIsMajor(false);
   },
   updateScaleFrequencies: function () {
     this.setText(this.data.scaleText, this.scale.name);
@@ -207,7 +213,7 @@ AFRAME.registerSystem("air-violin", {
             if (
               this.scale.keyToScales[noteWithoutNumber].includes(
                 this.scale.name
-              )
+              ) || this.extraNotes.includes(note)
             ) {
               return { frequency, index };
             }
@@ -260,10 +266,17 @@ AFRAME.registerSystem("air-violin", {
         break;
       case "scale":
       case "perfect":
+      case "song":
         this.showEntity(this.data.scaleText.parentEl);
         break;
       default:
         break;
+    }
+
+    if (this.mode == "song") {
+      this.updateHighlightedSongNote(0, false, true);
+    } else {
+      this.clearSongNotes();
     }
   },
 
@@ -288,7 +301,7 @@ AFRAME.registerSystem("air-violin", {
     if (isOtherHandVisible) {
       this.updateBowPosition();
       this.updateBowRotation();
-      this.updateInstruments(timeDelta);
+      this.updateInstruments(time, timeDelta);
       this.showEntity(this.data.bow);
     } else {
       this.hideEntity(this.data.bow);
@@ -368,8 +381,9 @@ AFRAME.registerSystem("air-violin", {
       this.isStringUsed[fingerIndex] = useString;
     });
 
-    if (numberOfStringsUsed > this.data.maxStrings) {
-      const numberOfStringsToUnuse = numberOfStringsUsed - this.data.maxStrings;
+    const maxStrings = this.mode == "song" ? 1 : this.data.maxStrings;
+    if (numberOfStringsUsed > maxStrings) {
+      const numberOfStringsToUnuse = numberOfStringsUsed - maxStrings;
       let numberOfStringsUnused = 0;
       for (
         let _fingerIndex = this.fingerCurls.length - 1;
@@ -427,6 +441,7 @@ AFRAME.registerSystem("air-violin", {
         break;
       case "scale":
       case "perfect":
+      case "song":
         {
           const scaleFrequencies = this.scaleFrequencies[fingerIndex];
 
@@ -559,7 +574,19 @@ AFRAME.registerSystem("air-violin", {
     this.isBowUsed = isBowUsed;
   },
 
-  updateInstruments: function (timeDelta) {
+  updateInstruments: function (time, timeDelta) {
+    this.instruments.forEach((instrument, index) => {
+      const frequency = this.fingerNotes[index];
+      let isRightNote = false;
+      if (this.mode == "song") {
+        isRightNote = frequency.toNote() == this.highlightedSongNote.toNote();
+        if (isRightNote != instrument._isRightNote) {
+          this.colorHighlightedSongNote(isRightNote ? "green" : "red");
+          instrument._isRightNote = isRightNote;
+        }
+      }
+    });
+
     if (this.isBowUsed) {
       const bowDistance = this.bowSpherical.radius;
       if (this.previousBowDistance) {
@@ -587,13 +614,19 @@ AFRAME.registerSystem("air-violin", {
                 } else {
                   if (Math.abs(midiDifference) >= 1) {
                     this.clearInstrument(index);
-                    this.playInstrument(index, frequency)
+                    this.playInstrument(index, frequency, time);
                   }
                 }
               } else {
-                this.playInstrument(index, frequency)
+                this.playInstrument(index, frequency, time);
               }
               this.throttledUpdateInstrument[index](gain, pitchBend);
+
+              // FIX - wait for longer period
+              if (instrument._isRightNote && gain > 0.3 && time - instrument._startTime > 300) {
+                this.updateHighlightedSongNote(1, true);
+                instrument._isRightNote = false;
+              }
             } else {
               this.clearInstrument(index);
             }
@@ -612,12 +645,13 @@ AFRAME.registerSystem("air-violin", {
     return 69 + (12 * Math.log(pitch / this.A4)) / Math.LN2;
   },
 
-  playInstrument: function(index, frequency) {
+  playInstrument: function (index, frequency, time) {
     if (!this.isPlaying[index]) {
       this.isPlaying[index] = true;
-      const instrument = this.instruments[index]
+      const instrument = this.instruments[index];
       instrument.triggerAttack(frequency);
       instrument._midi = this.getRawMidi(frequency.toFrequency());
+      instrument._startTime = time;
     }
   },
   clearInstrument: function (index) {
@@ -730,19 +764,18 @@ AFRAME.registerSystem("air-violin", {
     const fingering =
       this.noteToFingerings[this.highlightedSongNote.toNote()][0];
     if (fingering) {
-      console.log(fingering);
       const { stringIndex, fingerIndex } = fingering;
-      this.fingerEntities.forEach((fingerEntity, index) => {
-        const visible = fingerIndex !== 0 && index == stringIndex;
+      this.songNoteEntities.forEach((entity, index) => {
+        const visible = index == stringIndex;
         if (visible) {
-          fingerEntity.object3D.position.y =
+          this.highlightedSongNoteEntity = entity;
+          this.colorHighlightedSongNote("red")
+          entity.object3D.position.y =
             fingerIndex == 0
               ? 0
-              : this.fretEntities[fingerIndex - 1].object3D.position.y;
+              : this.fretEntities[fingerIndex].object3D.position.y;
         }
-        fingerEntity.object3D.visible = visible;
-
-        this.highlightString(stringIndex);
+        this.setEntityVisibility(entity, visible);
       });
     } else {
       console.log(
@@ -751,9 +784,16 @@ AFRAME.registerSystem("air-violin", {
       );
     }
   },
+  colorHighlightedSongNote: function (color) {
+    if (this.highlightedSongNote) {
+      const entity = this.highlightedSongNoteEntity;
+      entity.setAttribute("color", color);
+    }
+  },
   clearSongNotes: function () {
-    this.fingerEntities.forEach((fingerEntity, index) => {
-      fingerEntity.object3D.visible = false;
+    this.songNoteEntities.forEach((entity, index) => {
+      entity.setAttribute("color", "red");
+      this.hideEntity(entity);
     });
   },
 });
