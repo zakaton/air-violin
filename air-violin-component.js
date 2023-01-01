@@ -188,7 +188,7 @@ AFRAME.registerSystem("air-violin", {
     });
 
     this.modes = ["continuous", "notes", "scale", "perfect", "song"];
-    this.modeIndex = 4;
+    this.modeIndex = 1;
     this.onModeIndexUpdate();
 
     this.violinPitchOffset = 0.1;
